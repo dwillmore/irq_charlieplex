@@ -1,0 +1,61 @@
+name: Build CI
+
+on: [push, pull_request]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: 'recursive'
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          # remove man-db to avoid slow trigger step
+          sudo apt-get -yqq purge man-db || true
+          sudo apt-get install -y --no-install-recommends build-essential make libnewlib-dev gcc-riscv64-unknown-elf
+
+      - name: Build example
+        run: |
+          make V=1 -j3 build 2>&1
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: 'recursive'
+      - name: Install xPack GCC + Make
+        shell: pwsh
+        run: |
+          ch32fun/misc/install_xpack_gcc.ps1 -SkipPrompts
+      - name: Build example
+        shell: cmd
+        run: |
+          make V=1 -j3 build 2>&1
+
+  # Build using PlatformIO
+  build-pio:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - uses: actions/checkout@v7
+      with:
+        submodules: 'recursive'
+    - uses: actions/cache@v5
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.platformio/.cache
+        key: ${{ runner.os }}-pio
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.9'
+    - name: Install PlatformIO Core
+      run: pip install --upgrade platformio
+    - name: Build PlatformIO Project
+      run: pio run -v

@@ -6,170 +6,11 @@
 
 #define APB_CLOCK SYSTEM_CORE_CLOCK
 
-// This example shows how to flexibly drive arbitrary charlieplexed displays
-// It uses two layers of lookup to determine the port data for each LED.  
-// The first layer converts the LED# to two virtual pin#.
-// The second layer converts the virtual pin# to the GPIO register values.
-#define FLOAT (GPIO_Speed_In   |  GPIO_CNF_IN_ANALOG)
-#define OUT   (GPIO_Speed_2MHz |  GPIO_CNF_OUT_PP)
-#define CHARLIE_PINS_N 16
-#define CHARLIE_LEDS (CHARLIE_PINS_N * (CHARLIE_PINS_N - 1))
-// Create masks for the GPIO configuration registers to show which bits we control
-// We use all of port C
-#define CHARLIE_CFGLRC_MASK 	(~(GPIO_CFGLR_MODE0 | \
-				   GPIO_CFGLR_MODE1 | \
-				   GPIO_CFGLR_MODE2 | \
-				   GPIO_CFGLR_MODE3 | \
-				   GPIO_CFGLR_MODE4 | \
-				   GPIO_CFGLR_MODE5 | \
-				   GPIO_CFGLR_MODE6 | \
-				   GPIO_CFGLR_MODE7 | \
-				   GPIO_CFGLR_CNF0 | \
-				   GPIO_CFGLR_CNF1 | \
-				   GPIO_CFGLR_CNF2 | \
-				   GPIO_CFGLR_CNF3 | \
-				   GPIO_CFGLR_CNF4 | \
-				   GPIO_CFGLR_CNF5 | \
-				   GPIO_CFGLR_CNF6 | \
-				   GPIO_CFGLR_CNF7))
-// We use all of port D
-#define CHARLIE_CFGLRD_MASK 	(~(GPIO_CFGLR_MODE0 | \
-				   GPIO_CFGLR_MODE1 | \
-				   GPIO_CFGLR_MODE2 | \
-				   GPIO_CFGLR_MODE3 | \
-				   GPIO_CFGLR_MODE4 | \
-				   GPIO_CFGLR_MODE5 | \
-				   GPIO_CFGLR_MODE6 | \
-				   GPIO_CFGLR_MODE7 | \
-				   GPIO_CFGLR_CNF0 | \
-				   GPIO_CFGLR_CNF1 | \
-				   GPIO_CFGLR_CNF2 | \
-				   GPIO_CFGLR_CNF3 | \
-				   GPIO_CFGLR_CNF4 | \
-				   GPIO_CFGLR_CNF5 | \
-				   GPIO_CFGLR_CNF6 | \
-				   GPIO_CFGLR_CNF7))
-// We also need a value to set all of the pins to input
-#define CHARLIE_CFGLRC_IN 	((FLOAT) << (4*0) | \
-			 	 (FLOAT) << (4*1) | \
-				 (FLOAT) << (4*2) | \
-				 (FLOAT) << (4*3) | \
-				 (FLOAT) << (4*4) | \
-				 (FLOAT) << (4*5) | \
-				 (FLOAT) << (4*6) | \
-				 (FLOAT) << (4*7))
-#define CHARLIE_CFGLRD_IN 	((FLOAT) << (4*0) | \
-				 (FLOAT) << (4*1) | \
-				 (FLOAT) << (4*2) | \
-				 (FLOAT) << (4*3) | \
-				 (FLOAT) << (4*4) | \
-				 (FLOAT) << (4*5) | \
-				 (FLOAT) << (4*6) | \
-				 (FLOAT) << (4*7))
-// And a value to use to reset all the pins
-#define CHARLIE_BSHRC_PINS 	(GPIO_BSHR_BR0 | GPIO_BSHR_BR1 | GPIO_BSHR_BR2 | GPIO_BSHR_BR3 | \
-				GPIO_BSHR_BR4 | GPIO_BSHR_BR5 | GPIO_BSHR_BR6 | GPIO_BSHR_BR7)
-#define CHARLIE_BSHRD_PINS 	(GPIO_BSHR_BR0 | GPIO_BSHR_BR1 | GPIO_BSHR_BR2 | GPIO_BSHR_BR3 | \
-				GPIO_BSHR_BR4 | GPIO_BSHR_BR5 | GPIO_BSHR_BR6 | GPIO_BSHR_BR7)
-// Define an array of structures containing the values for the port C and D
-// configuration and bit set/reset registers to drive a physical pin--indexed
-// by virtual pin number.  
-// Virtual pin 0 is PC0 though pin 7 being PC7
-// Then 8 is PD0 through 15 being PD7
-const struct {
-	uint32_t cfglrc;
-	uint32_t cfglrd;
-	uint16_t bshrc;
-	uint16_t bshrd;
-} charlie_pin_data[CHARLIE_PINS_N] = {
-	{((OUT) << (4*0)   | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 ((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 GPIO_BSHR_BS0,
-	 0x0},
+#include "irq_charlieplex.h"
 
-	{((FLOAT) << (4*0) | (OUT) << (4*1)   | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 ((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 GPIO_BSHR_BS1,
-	 0x0},
-
-	{((FLOAT) << (4*0) | (FLOAT) << (4*1) | (OUT) << (4*2)   | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 ((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 GPIO_BSHR_BS2,
-	 0x0},
-
-	{((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (OUT) << (4*3)   | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 ((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 GPIO_BSHR_BS3,
-	 0x0},
-
-	{((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (OUT) << (4*4)   | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 ((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 GPIO_BSHR_BS4,
-	 0x0},
-
-	{((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (OUT) << (4*5)   | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 ((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 GPIO_BSHR_BS5,
-	 0x0},
-
-	{((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (OUT) << (4*6)   | (FLOAT) << (4*7)),
-	 ((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 GPIO_BSHR_BS6,
-	 0x0},
-
-	{((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (OUT) << (4*7)),
-	 ((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 GPIO_BSHR_BS7,
-	 0x0},
-
-	{((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 ((OUT) << (4*0)   | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 0x0,
-	 GPIO_BSHR_BS0},
-
-	{((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 ((FLOAT) << (4*0) | (OUT) << (4*1)   | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 0x0,
-	 GPIO_BSHR_BS1},
-
-	{((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 ((FLOAT) << (4*0) | (FLOAT) << (4*1) | (OUT) << (4*2)   | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 0x0,
-	 GPIO_BSHR_BS2},
-
-	{((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 ((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (OUT) << (4*3)   | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 0x0,
-	 GPIO_BSHR_BS3},
-
-	{((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 ((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (OUT) << (4*4)   | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 0x0,
-	 GPIO_BSHR_BS4},
-
-	{((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 ((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (OUT) << (4*5)   | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 0x0,
-	 GPIO_BSHR_BS5},
-
-	{((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 ((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (OUT) << (4*6)   | (FLOAT) << (4*7)),
-	 0x0,
-	 GPIO_BSHR_BS6},
-
-	{((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (FLOAT) << (4*7)),
-	 ((FLOAT) << (4*0) | (FLOAT) << (4*1) | (FLOAT) << (4*2) | (FLOAT) << (4*3) | (FLOAT) << (4*4) | (FLOAT) << (4*5) | (FLOAT) << (4*6) | (OUT) << (4*7)),
-	 0x0,
-	 GPIO_BSHR_BS7}
-};
-
-// Functions to translate and led# into virtual pins to set/reset
-//uint32_t get_led_set( uint32_t led ){
-//	return((led + 1 + (led / (CHARLIE_PINS_N))) % (CHARLIE_PINS_N));
-//}
-//uint32_t get_led_reset( uint32_t led ){
-//	return(led/(CHARLIE_PINS_N-1));
-//}
+volatile uint32_t brightness[100];
+volatile uint8_t lednum[100];
+volatile uint32_t led_index;
 
 uint32_t get_led_reset( uint32_t led ){
   return(led % (CHARLIE_PINS_N));
@@ -178,34 +19,47 @@ uint32_t get_led_set( uint32_t led ){
   return((CHARLIE_PINS_N - (led/(CHARLIE_PINS_N-1))) - 1);
 }
 
-void set_led( uint32_t led){
-	uint32_t temp, set_pin, reset_pin;
+void SysTick_Handler(void) __attribute__((interrupt));
+void SysTick_Handler(void)
+{
+  uint32_t temp, set_pin, reset_pin;
 
-	// Start by setting all the pins to input/floating to prevent ghosting
-	// Compute the virtual pin# for set and reset
-	reset_pin = get_led_set( led );
-	set_pin = get_led_reset( led );
-	temp = GPIOC->CFGLR;
-	temp &= CHARLIE_CFGLRC_MASK;
-	temp |= (CHARLIE_CFGLRC_IN & CHARLIE_CFGLRC_MASK);
-	GPIOC->CFGLR = temp;
-	temp = GPIOD->CFGLR;
-	temp &= CHARLIE_CFGLRD_MASK;
-	temp |= (CHARLIE_CFGLRD_IN & CHARLIE_CFGLRD_MASK);
-	GPIOD->CFGLR = temp;
-	// Clear the output values for our pins
-	GPIOC->BSHR = CHARLIE_BSHRC_PINS;
-	GPIOD->BSHR = CHARLIE_BSHRD_PINS;
-	// Configure the pins for input/output
-	GPIOC->CFGLR |= charlie_pin_data[set_pin].cfglrc | charlie_pin_data[reset_pin].cfglrc;
-	GPIOD->CFGLR |= charlie_pin_data[set_pin].cfglrd | charlie_pin_data[reset_pin].cfglrd;
-	// Set the set pin
-	GPIOC->BSHR = charlie_pin_data[set_pin].bshrc;
-	GPIOD->BSHR = charlie_pin_data[set_pin].bshrd;
+	// turn off the LED quickly
+  temp = GPIOC->CFGLR;
+  temp &= CHARLIE_CFGLRC_MASK;
+  temp |= (CHARLIE_CFGLRC_IN & CHARLIE_CFGLRC_MASK);
+  GPIOC->CFGLR = temp;
+  temp = GPIOD->CFGLR;
+  temp &= CHARLIE_CFGLRD_MASK;
+  temp |= (CHARLIE_CFGLRD_IN & CHARLIE_CFGLRD_MASK);
+  GPIOD->CFGLR = temp;
+
+	// If the current led_index points to an invalid LED, don't display anything
+	if(lednum[led_index] != 254){
+		// calculate next values to set
+		reset_pin = get_led_set( lednum[led_index] );
+  	set_pin = get_led_reset( lednum[led_index] );
+
+  	// Clear the output values for our pins
+  	GPIOC->BSHR = CHARLIE_BSHRC_PINS;
+  	GPIOD->BSHR = CHARLIE_BSHRD_PINS;
+
+  	// Configure the pins for input/output
+  	GPIOC->CFGLR |= charlie_pin_data[set_pin].cfglrc | charlie_pin_data[reset_pin].cfglrc;
+  	GPIOD->CFGLR |= charlie_pin_data[set_pin].cfglrd | charlie_pin_data[reset_pin].cfglrd;
+
+  	// Set the set pin
+  	GPIOC->BSHR = charlie_pin_data[set_pin].bshrc;
+  	GPIOD->BSHR = charlie_pin_data[set_pin].bshrd;
+	}
+
+  SysTick->CMP += brightness[led_index];
+  // Clear the trigger state for the next IRQ
+  SysTick->SR = 0x00000000;
+
+	if (lednum[++led_index] == 255)
+		led_index=0;
 }
-
-#define STEP 0x00100000
-#define ITER 0x040
 
 int main()
 {
@@ -219,25 +73,42 @@ int main()
 	AFIO->PCFR1 &= ~(AFIO_PCFR1_SWCFG);
 	AFIO->PCFR1 |= AFIO_PCFR1_SWCFG_DISABLE;
 
-	uint32_t incr;
-	uint32_t led = 0;
-	uint32_t overflow = 0;
-	uint32_t residue;
-	while(1){
-		led += STEP;
-		if(led > (CHARLIE_LEDS << 24))
-			led = 0;
-		incr = (led & 0x00ffffff) << 8;
-		for( uint32_t count = 0; count < ITER; count++){
-			residue = overflow;
-			overflow += incr;
-			if(overflow < residue){
-				set_led(((led >> 24) + 1) % CHARLIE_LEDS);
-			}else{
-				set_led(led >> 24);
-			}
-//			Delay_Us(1);
-		}
+	int index = 0, total_brightness = 0;
+	// Setup display list
+	// reserve the 'second' LED
+	lednum[index] = 0;
+	brightness[index] = DELAY_MS_TIME/100;
+	total_brightness += DELAY_MS_TIME/100;
+	index++;
+
+	// Make the hour ticks
+	for(int i = 0; i < CHARLIE_LEDS; i+=20){
+		lednum[index] = i;
+		brightness[index] = DELAY_MS_TIME/100;
+		total_brightness += DELAY_MS_TIME/100;
+		index++;
 	}
+
+	// Set the end 'no led' entry to be the remaining frame time
+	lednum[index] = 254;
+	brightness[index] = DELAY_MS_TIME - total_brightness;
+	// Set the 'end of list' flag
+	lednum[++index] = 255;
+
+	// Setup the systick IRQ and set it to fire in one MS
+	SysTick->CTLR = 0x0000;
+  SysTick->CMP = DELAY_MS_TIME - 1;
+  SysTick->CNT = 0x00000000;
+  SysTick->CTLR |= SYSTICK_CTLR_STE | SYSTICK_CTLR_STIE | SYSTICK_CTLR_STCLK ; 
+  NVIC_EnableIRQ(SysTick_IRQn);
+
+	// spin the second hand
+	int counter = 0;
+	while(1) {
+		lednum[0] = counter;
+		if(counter++ == CHARLIE_LEDS)
+			counter=0;
+		Delay_Ms(60000/240);
+		}
 }
 

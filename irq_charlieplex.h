@@ -3,7 +3,7 @@
 // The first layer converts the LED# to two virtual pin#.
 // The second layer converts the virtual pin# to the GPIO register values.
 #define FLOAT (GPIO_Speed_In   |  GPIO_CNF_IN_ANALOG)
-#define OUT   (GPIO_Speed_2MHz |  GPIO_CNF_OUT_PP)
+#define OUT   (GPIO_Speed_50MHz |  GPIO_CNF_OUT_PP)
 #define CHARLIE_PINS_N 16
 #define CHARLIE_LEDS (CHARLIE_PINS_N * (CHARLIE_PINS_N - 1))
 // Create masks for the GPIO configuration registers to show which bits we control

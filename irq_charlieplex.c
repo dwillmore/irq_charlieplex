@@ -22,27 +22,20 @@ uint32_t get_led_set( uint32_t led ){
 void SysTick_Handler(void) __attribute__((interrupt));
 void SysTick_Handler(void)
 {
-  uint32_t temp, set_pin, reset_pin;
+  uint32_t set_pin, reset_pin;
 
-	// turn off the LED quickly
-  temp = GPIOC->CFGLR;
-  temp &= CHARLIE_CFGLRC_MASK;
-  temp |= (CHARLIE_CFGLRC_IN & CHARLIE_CFGLRC_MASK);
-  GPIOC->CFGLR = temp;
-  temp = GPIOD->CFGLR;
-  temp &= CHARLIE_CFGLRD_MASK;
-  temp |= (CHARLIE_CFGLRD_IN & CHARLIE_CFGLRD_MASK);
-  GPIOD->CFGLR = temp;
+	// Turn off the LED quickly
+	GPIOC->CFGLR = (CHARLIE_CFGLRC_IN & CHARLIE_CFGLRC_MASK);
+	GPIOD->CFGLR = (CHARLIE_CFGLRD_IN & CHARLIE_CFGLRD_MASK);
+ 	// Clear the output values for our pins
+ 	GPIOC->BSHR = CHARLIE_BSHRC_PINS;
+ 	GPIOD->BSHR = CHARLIE_BSHRD_PINS;
 
 	// If the current led_index points to an invalid LED, don't display anything
-	if(lednum[led_index] != 254){
+	if(lednum[led_index] < CHARLIE_LEDS){
 		// calculate next values to set
 		reset_pin = get_led_set( lednum[led_index] );
   	set_pin = get_led_reset( lednum[led_index] );
-
-  	// Clear the output values for our pins
-  	GPIOC->BSHR = CHARLIE_BSHRC_PINS;
-  	GPIOD->BSHR = CHARLIE_BSHRD_PINS;
 
   	// Configure the pins for input/output
   	GPIOC->CFGLR |= charlie_pin_data[set_pin].cfglrc | charlie_pin_data[reset_pin].cfglrc;
@@ -77,23 +70,23 @@ int main()
 	// Setup display list
 	// reserve the 'second' LED
 	lednum[index] = 0;
-	brightness[index] = DELAY_MS_TIME/100;
-	total_brightness += DELAY_MS_TIME/100;
+	brightness[index] = DELAY_MS_TIME/10;
+	total_brightness += DELAY_MS_TIME/10;
 	index++;
 
 	// Make the hour ticks
 	for(int i = 0; i < CHARLIE_LEDS; i+=20){
 		lednum[index] = i;
-		brightness[index] = DELAY_MS_TIME/100;
-		total_brightness += DELAY_MS_TIME/100;
+		brightness[index] = DELAY_MS_TIME/150;
+		total_brightness += DELAY_MS_TIME/150;
 		index++;
 	}
 
 	// Set the end 'no led' entry to be the remaining frame time
-	lednum[index] = 254;
-	brightness[index] = DELAY_MS_TIME - total_brightness;
+	lednum[index] = CHARLIE_LEDS;
+	brightness[index++] = DELAY_MS_TIME - total_brightness;
 	// Set the 'end of list' flag
-	lednum[++index] = 255;
+	lednum[index] = 255;
 
 	// Setup the systick IRQ and set it to fire in one MS
 	SysTick->CTLR = 0x0000;

@@ -46,9 +46,10 @@ void SysTick_Handler(void)
   	GPIOD->BSHR = charlie_pin_data[set_pin].bshrd;
 	}
 
-  SysTick->CMP += brightness[led_index];
   // Clear the trigger state for the next IRQ
   SysTick->SR = 0x00000000;
+	// Set time to wait for brightness time
+  SysTick->CMP += brightness[led_index];
 
 	if (lednum[++led_index] == 255)
 		led_index=0;
@@ -70,15 +71,17 @@ int main()
 	// Setup display list
 	// reserve the 'second' LED
 	lednum[index] = 0;
-	brightness[index] = DELAY_MS_TIME/10;
-	total_brightness += DELAY_MS_TIME/10;
+	brightness[index] = 500;
+	total_brightness += 500;
 	index++;
 
 	// Make the hour ticks
 	for(int i = 0; i < CHARLIE_LEDS; i+=20){
 		lednum[index] = i;
-		brightness[index] = DELAY_MS_TIME/150;
-		total_brightness += DELAY_MS_TIME/150;
+//		brightness[index] = DELAY_MS_TIME/150;
+//		total_brightness += DELAY_MS_TIME/150;
+		brightness[index] = 275;
+		total_brightness += 275;
 		index++;
 	}
 

@@ -11,6 +11,8 @@
 volatile uint32_t brightness[100];
 volatile uint8_t lednum[100];
 volatile uint32_t led_index;
+uint8_t set_led[CHARLIE_LEDS];
+uint8_t reset_led[CHARLIE_LEDS];
 
 uint32_t get_led_set( uint32_t led ){
   return(led % (CHARLIE_PINS_N));
@@ -39,8 +41,10 @@ void SysTick_Handler(void)
 	// If the current led_index points to an invalid LED, don't display anything
 	if(lednum[led_index] < CHARLIE_LEDS){
 		// calculate next values to set
-		reset_pin = get_led_reset( lednum[led_index] );
-  	set_pin = get_led_set( lednum[led_index] );
+//		reset_pin = get_led_reset( lednum[led_index] );
+//  	set_pin = get_led_set( lednum[led_index] );
+		reset_pin = reset_led[ lednum[led_index] ];
+  	set_pin = set_led[ lednum[led_index] ];
 
   	// Configure the pins for input/output
   	GPIOC->CFGLR = charlie_pin_data[set_pin].cfglrc | charlie_pin_data[reset_pin].cfglrc;
@@ -64,6 +68,11 @@ int main()
 {
 	SystemInit();
 
+	for(int i = 0; i < CHARLIE_LEDS; i++){
+		set_led[i] = get_led_set(i);
+		reset_led[i] = get_led_reset(i);
+	}
+
 	Delay_Ms(1500);
 
 	// Enable GPIOs
@@ -76,23 +85,23 @@ int main()
 	// Setup display list
 	// reserve the 'second' LED
 	lednum[index] = 0;
-	brightness[index] = 500;
-	total_brightness += 500;
+	brightness[index] = 0;
+	total_brightness += 0;
 	index++;
 
 	// Make the hour ticks
 	for(int i = 0; i < CHARLIE_LEDS; i+=20){
 		lednum[index] = i;
-//		brightness[index] = DELAY_MS_TIME/150;
-//		total_brightness += DELAY_MS_TIME/150;
-		brightness[index] = 400;
-		total_brightness += 400;
+		brightness[index] = 175;
+		total_brightness += 175;
 		index++;
 	}
 
 	// Set the end 'no led' entry to be the remaining frame time
-	lednum[index] = CHARLIE_LEDS;
-	brightness[index++] = DELAY_MS_TIME - total_brightness;
+//	lednum[index] = CHARLIE_LEDS;
+//	brightness[index++] = DELAY_MS_TIME - total_brightness;
+	// Put all the leftover brightness in the second hand
+	brightness[0] = DELAY_MS_TIME - total_brightness;
 	// Set the 'end of list' flag
 	lednum[index] = 255;
 
@@ -104,10 +113,10 @@ int main()
   NVIC_EnableIRQ(SysTick_IRQn);
 
 	// spin the second hand
-	int counter = 0;
+	int counter = 200;
 	while(1) {
 		lednum[0] = counter;
-		if(counter++ == CHARLIE_LEDS)
+		if(++counter == CHARLIE_LEDS)
 			counter=0;
 		Delay_Ms(60000/240);
 		}

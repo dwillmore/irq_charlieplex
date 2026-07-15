@@ -83,10 +83,14 @@ int main()
 
 	int index = 0, total_brightness = 0;
 	// Setup display list
-	// reserve the 'second' LED
+	// reserve two slots for the 'second' LEDs
 	lednum[index] = 0;
-	brightness[index] = 0;
-	total_brightness += 0;
+	brightness[index] = 200;
+	total_brightness += 200;
+	index++;
+	lednum[index] = 0;
+	brightness[index] = 200;
+	total_brightness += 200;
 	index++;
 
 	// Make the hour ticks
@@ -101,7 +105,7 @@ int main()
 //	lednum[index] = CHARLIE_LEDS;
 //	brightness[index++] = DELAY_MS_TIME - total_brightness;
 	// Put all the leftover brightness in the second hand
-	brightness[0] = DELAY_MS_TIME - total_brightness;
+//	brightness[0] = DELAY_MS_TIME - total_brightness;
 	// Set the 'end of list' flag
 	lednum[index] = 255;
 
@@ -113,12 +117,18 @@ int main()
   NVIC_EnableIRQ(SysTick_IRQn);
 
 	// spin the second hand
-	int counter = 200;
+	int counter = 0;
 	while(1) {
-		lednum[0] = counter;
-		if(++counter == CHARLIE_LEDS)
+		int bright;
+		lednum[0] = counter/100;
+		lednum[1] = ((counter/100) + 1) % CHARLIE_LEDS;
+		bright = ((100 - (counter%100)) * (DELAY_MS_TIME - total_brightness)) / 100;
+		brightness[0] = (bright > 200)?bright:200;
+		bright = ((counter%100) * (DELAY_MS_TIME - total_brightness)) / 100;
+		brightness[1] = (bright > 200)?bright:200;
+		if(++counter == (CHARLIE_LEDS * 100))
 			counter=0;
-		Delay_Ms(60000/240);
+		Delay_Ms(600/240);
 		}
 }
 
